@@ -23,7 +23,7 @@ class LINQ
      * @param array $data
      * @return LINQ
      */
-    public static function init($data)
+    public static function from($data)
     {
         return new LINQ($data);
     }
