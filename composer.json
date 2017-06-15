@@ -1,0 +1,21 @@
+{
+  "name": "fabs/linq",
+  "type": "library",
+  "description": "LINQ for PHP",
+  "keywords": [
+    "linq"
+  ],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Ahmet Turk",
+      "email": "ahmetturk93@gmail.com",
+      "homepage": "https://github.com/fabsolute"
+    }
+  ],
+  "autoload": {
+    "psr-0": {
+      "Fabs\\LINQ": "src"
+    }
+  }
+}
