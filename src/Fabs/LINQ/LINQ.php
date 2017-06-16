@@ -186,6 +186,19 @@ class LINQ
     #region Finishers
     /**
      * @param callable $callable
+     */
+    public function each($callable)
+    {
+        foreach ($this->data as $key => $value) {
+            $response = call_user_func_array($callable, [$key, $value]);
+            if ($response === false) {
+                break;
+            }
+        }
+    }
+
+    /**
+     * @param callable $callable
      * @param bool $throw_if_not_found
      * @param mixed $default
      * @return mixed
