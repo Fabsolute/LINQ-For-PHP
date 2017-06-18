@@ -119,6 +119,26 @@ class LINQ
     }
 
     /**
+     * @param callable $callable
+     * @return LINQ
+     */
+    public function groupBy($callable)
+    {
+        $new_data = [];
+
+        foreach ($this->data as $key => $value) {
+            $new_key = call_user_func($callable, $value);
+            if(!array_key_exists($new_key,$new_data)){
+                $new_data[$new_key] = [];
+            }
+            $new_data[$new_key][] = $value;
+        }
+
+        $this->data = $new_data;
+        return $this;
+    }
+
+    /**
      * @return LINQ
      */
     public function reverse()
