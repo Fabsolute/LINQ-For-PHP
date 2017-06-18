@@ -183,6 +183,15 @@ class LINQ
         return $this->distinct();
     }
 
+    /**
+     * @return LINQ
+     */
+    public function reIndex()
+    {
+        $this->data = array_values($this->data);
+        return $this;
+    }
+
     #region Finishers
     /**
      * @param callable $callable
@@ -287,7 +296,7 @@ class LINQ
      * @param callable $callable
      * @return float|int
      */
-    public function avg($callable = null)
+    public function average($callable = null)
     {
         $count = $this->count();
         $sum = $this->sum($callable);
