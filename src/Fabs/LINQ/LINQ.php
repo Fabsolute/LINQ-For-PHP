@@ -5,18 +5,34 @@ namespace Fabs\LINQ;
 use Fabs\LINQ\Exception\ArgumentOutOfRangeException;
 use Fabs\LINQ\Exception\InvalidArgumentException;
 use Fabs\LINQ\Exception\InvalidOperationException;
+use Fabs\LINQ\Iterator\ConcatIterator;
+use Fabs\LINQ\Iterator\DistinctIterator;
+use Fabs\LINQ\Iterator\ExceptIterator;
+use Fabs\LINQ\Iterator\GroupByIterator;
+use Fabs\LINQ\Iterator\IntersectIterator;
+use Fabs\LINQ\Iterator\OrderByIterator;
+use Fabs\LINQ\Iterator\SelectIterator;
+use Fabs\LINQ\Iterator\SelectManyIterator;
+use Fabs\LINQ\Iterator\SkipWhileIterator;
+use Fabs\LINQ\Iterator\TakeWhileIterator;
+use Fabs\LINQ\Iterator\WhereIterator;
 
-class LINQ
+class LINQ implements \IteratorAggregate, \Countable
 {
-    private $data = [];
+    /**
+     * @var \Traversable
+     */
+    private $iterator = null;
 
-    private function __construct($data)
+    private function __construct($source)
     {
-        if (!is_array($data)) {
-            throw new InvalidArgumentException('data must be an array');
+        if (is_array($source)) {
+            $this->iterator = new \ArrayIterator($source);
+        } else if ($source instanceof \IteratorAggregate || $source instanceof \Iterator) {
+            $this->iterator = $source;
+        } else {
+            throw new InvalidArgumentException('source must be an array, iterator or iteratorAggregate');
         }
-
-        $this->data = $data;
     }
 
     /**
@@ -35,16 +51,7 @@ class LINQ
      */
     public function where($callable)
     {
-        if (is_callable($callable)) {
-            foreach ($this->data as $key => $value) {
-                $response = call_user_func($callable, $value);
-                if ($response !== true) {
-                    unset($this->data[$key]);
-                }
-            }
-        }
-
-        return $this;
+        return new LINQ(new WhereIterator($this->iterator, $callable));
     }
 
     /**
@@ -53,16 +60,38 @@ class LINQ
      */
     public function select($callable)
     {
-        $new_data = [];
+        return new LINQ(new SelectIterator($this->iterator, $callable));
+    }
 
-        foreach ($this->data as $key => $value) {
-            $response = call_user_func($callable, $value);
-            $new_data[$key] = $response;
-        }
+    /**
+     * @param callable $callable
+     * @return LINQ
+     */
+    public function selectMany($callable)
+    {
+        return new LINQ(new SelectManyIterator($this->iterator, $callable));
+    }
 
-        $this->data = $new_data;
+    /**
+     * @param array|\Traversable $source
+     * @return LINQ
+     */
+    public function except($source)
+    {
+        $except_iterator = new ExceptIterator($this->iterator, null);
+        $except_iterator->setExceptIterator($source);
+        return new LINQ($except_iterator);
+    }
 
-        return $this;
+    /**
+     * @param array|\Traversable $source
+     * @return LINQ
+     */
+    public function intersect($source)
+    {
+        $intersect_iterator = new IntersectIterator($this->iterator, null);
+        $intersect_iterator->setIntersectIterator($source);
+        return new LINQ($intersect_iterator);
     }
 
     /**
@@ -70,43 +99,16 @@ class LINQ
      */
     public function distinct()
     {
-        $this->data = array_unique($this->data);
-        return $this;
+        return new LINQ(new DistinctIterator($this->iterator, null));
     }
 
     /**
      * @param callable $callable
-     * @param int $sort
      * @return LINQ
      */
-    public function orderBy($callable = null, $sort = SORT_ASC)
+    public function orderBy($callable = null)
     {
-        $ordered_list = [];
-        foreach ($this->data as $key => $value) {
-            $response = $value;
-            if ($callable != null) {
-                $response = call_user_func($callable, $value);
-            }
-
-            $ordered_list[$key] = $response;
-        }
-
-        switch ($sort) {
-            case SORT_ASC:
-                asort($ordered_list);
-                break;
-            case SORT_DESC:
-                arsort($ordered_list);
-                break;
-        }
-
-        $new_data = [];
-        foreach ($ordered_list as $key => $value) {
-            $new_data[$key] = $this->data[$key];
-        }
-
-        $this->data = $new_data;
-        return $this;
+        return new LINQ(new OrderByIterator($this->iterator, $callable));
     }
 
     /**
@@ -115,7 +117,9 @@ class LINQ
      */
     public function orderByDescending($callable = null)
     {
-        return $this->orderBy($callable, SORT_DESC);
+        $order_by_iterator = new OrderByIterator($this->iterator, $callable);
+        $order_by_iterator->setDirection(SORT_DESC);
+        return new LINQ($order_by_iterator);
     }
 
     /**
@@ -124,18 +128,7 @@ class LINQ
      */
     public function groupBy($callable)
     {
-        $new_data = [];
-
-        foreach ($this->data as $key => $value) {
-            $new_key = call_user_func($callable, $value);
-            if(!array_key_exists($new_key,$new_data)){
-                $new_data[$new_key] = [];
-            }
-            $new_data[$new_key][] = $value;
-        }
-
-        $this->data = $new_data;
-        return $this;
+        return new LINQ(new GroupByIterator($this->iterator, $callable));
     }
 
     /**
@@ -143,8 +136,8 @@ class LINQ
      */
     public function reverse()
     {
-        $this->data = array_reverse($this->data);
-        return $this;
+        $array = array_reverse(iterator_to_array($this->iterator, false));
+        return new LINQ(new \ArrayIterator($array));
     }
 
     /**
@@ -153,15 +146,16 @@ class LINQ
      */
     public function skip($count)
     {
-        $new_data = [];
-        foreach ($this->data as $key => $value) {
-            if ($count <= 0) {
-                $new_data[$key] = $value;
-            }
-            $count--;
-        }
-        $this->data = $new_data;
-        return $this;
+        return new LINQ(new \LimitIterator($this->iterator, $count, -1));
+    }
+
+    /**
+     * @param callable $callable
+     * @return LINQ
+     */
+    public function skipWhile($callable)
+    {
+        return new LINQ(new SkipWhileIterator($this->iterator, $callable));
     }
 
     /**
@@ -170,55 +164,71 @@ class LINQ
      */
     public function take($count)
     {
-        $new_data = [];
-        foreach ($this->data as $key => $value) {
-            if ($count > 0) {
-                $new_data[$key] = $value;
-            } else {
-                break;
-            }
-            $count--;
-        }
-        $this->data = $new_data;
-        return $this;
+        return new LINQ(new \LimitIterator($this->iterator, 0, $count));
     }
 
     /**
-     * @param array $new_values
+     * @param callable $callable
      * @return LINQ
      */
-    public function concat($new_values)
+    public function takeWhile($callable)
     {
-        $this->data = array_merge($this->data, $new_values);
-        return $this;
+        return new LINQ(new TakeWhileIterator($this->iterator, $callable));
     }
 
     /**
-     * @param array $new_values
+     * @param array|\Traversable $new_source
      * @return LINQ
      */
-    public function union($new_values)
+    public function concat($new_source)
     {
-        $this->concat($new_values);
-        return $this->distinct();
+        $concat_iterator = new ConcatIterator($this->iterator, null);
+        $concat_iterator->addIterator($new_source);
+        return new LINQ($concat_iterator);
     }
 
     /**
+     * @param array|\Traversable $new_source
      * @return LINQ
      */
-    public function reIndex()
+    public function union($new_source)
     {
-        $this->data = array_values($this->data);
-        return $this;
+        return $this->concat($new_source)->distinct();
     }
 
     #region Finishers
     /**
      * @param callable $callable
+     * @return mixed
+     * @throws InvalidOperationException
+     */
+    public function aggregate($callable)
+    {
+        $folded = null;
+        $first = true;
+
+        foreach ($this as $item) {
+            if ($first) {
+                $folded = $item;
+                $first = false;
+            } else {
+                $folded = call_user_func_array($callable, [$folded, $item]);
+            }
+        }
+
+        if ($first) {
+            throw new InvalidOperationException ("No elements in source list");
+        }
+
+        return $folded;
+    }
+
+    /**
+     * @param callable $callable
      */
     public function each($callable)
     {
-        foreach ($this->data as $key => $value) {
+        foreach ($this as $key => $value) {
             $response = call_user_func_array($callable, [$key, $value]);
             if ($response === false) {
                 break;
@@ -235,11 +245,11 @@ class LINQ
      */
     public function single($callable = null, $throw_if_not_found = true, $default = null)
     {
-        $this->where($callable);
-        if ($this->count() > 1) {
+        $linq = $this->where($callable);
+        if ($linq->count() > 1) {
             throw  new InvalidOperationException();
-        } else if ($this->count() === 1) {
-            return $this->first();
+        } else if ($linq->count() === 1) {
+            return $linq->first();
         }
 
         if ($throw_if_not_found) {
@@ -269,7 +279,7 @@ class LINQ
     public function elementAt($index, $throw_if_not_found = true, $default = null)
     {
         $counter = 0;
-        foreach ($this->data as $key => $value) {
+        foreach ($this->iterator as $key => $value) {
             if ($index === $counter) {
                 return $value;
             }
@@ -299,7 +309,9 @@ class LINQ
      */
     public function contains($value)
     {
-        return in_array($value, $this->data, true);
+        return $this->any(function ($item) use ($value) {
+            return $value === $item;
+        });
     }
 
     /**
@@ -308,24 +320,10 @@ class LINQ
      */
     public function count($callable = null)
     {
-        $this->where($callable);
-        return count($this->data);
-    }
-
-    /**
-     * @param callable $callable
-     * @return float|int
-     */
-    public function average($callable = null)
-    {
-        $count = $this->count();
-        $sum = $this->sum($callable);
-
-        if ($count === 0) {
-            return 0;
+        if ($callable != null) {
+            return $this->where($callable)->count();
         }
-
-        return $sum / $count;
+        return iterator_count($this->iterator);
     }
 
     /**
@@ -335,10 +333,11 @@ class LINQ
     public function sum($callable = null)
     {
         $sum = 0;
-        foreach ($this->data as $key => $value) {
-            $response = $value;
+        foreach ($this->iterator as $value) {
             if ($callable != null) {
                 $response = call_user_func($callable, $value);
+            } else {
+                $response = $value;
             }
 
             $sum += $response;
@@ -349,50 +348,48 @@ class LINQ
     /**
      * @param callable $callable
      * @return float|int
-     * @throws InvalidArgumentException
+     * @throws InvalidOperationException
+     */
+    public function average($callable = null)
+    {
+        $count = $this->count();
+        if ($count === 0) {
+            throw new InvalidOperationException ();
+        }
+
+        $sum = $this->sum($callable);
+        return $sum / $count;
+    }
+
+    /**
+     * @param callable $callable
+     * @return float|int
+     * @throws InvalidOperationException
      */
     public function max($callable = null)
     {
-        if ($this->count() === 0) {
-            throw new InvalidArgumentException();
+        $selected = $this;
+        if ($callable != null) {
+            $selected = $selected->select($callable);
         }
-        $max = -INF;
-        foreach ($this->data as $key => $value) {
-            $response = $value;
-            if ($callable != null) {
-                $response = call_user_func($callable, $value);
-            }
 
-            if ($response > $max) {
-                $max = $response;
-            }
-        }
-        return $max;
+        return $selected->orderByDescending()->first();
     }
 
 
     /**
      * @param callable $callable
      * @return float|int
-     * @throws InvalidArgumentException
+     * @throws InvalidOperationException
      */
     public function min($callable = null)
     {
-        if ($this->count() === 0) {
-            throw new InvalidArgumentException();
+        $selected = $this;
+        if ($callable != null) {
+            $selected = $selected->select($callable);
         }
-        $min = INF;
-        foreach ($this->data as $key => $value) {
-            $response = $value;
-            if ($callable != null) {
-                $response = call_user_func($callable, $value);
-            }
 
-            if ($response < $min) {
-                $min = $response;
-            }
-        }
-        return $min;
+        return $selected->orderBy()->first();
     }
 
     /**
@@ -401,11 +398,28 @@ class LINQ
      */
     public function any($callable = null)
     {
-        $this->where($callable);
-        if (count($this->data) > 0) {
-            return true;
+        foreach ($this->iterator as $item) {
+            $response = call_user_func($callable, $item);
+            if ($response === true) {
+                return true;
+            }
         }
         return false;
+    }
+
+    /**
+     * @param callable $callable
+     * @return bool
+     */
+    public function all($callable)
+    {
+        foreach ($this->iterator as $item) {
+            $response = call_user_func($callable, $item);
+            if ($response === false) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -417,12 +431,14 @@ class LINQ
      */
     public function first($callable = null, $throw_if_not_found = true, $default = null)
     {
-        $this->where($callable);
+        $linq = $this->where($callable);
 
-        if (count($this->data) > 0) {
-            $values = array_values($this->data);
-            return $values[0];
+        if ($linq->count() > 0) {
+            foreach ($linq as $item) {
+                return $item;
+            }
         }
+
         if ($throw_if_not_found) {
             throw  new InvalidOperationException();
         } else {
@@ -450,11 +466,16 @@ class LINQ
      */
     public function last($callable = null, $throw_if_not_found = true, $default = null)
     {
-        $this->where($callable);
+        $linq = $this->where($callable);
 
-        if (count($this->data) > 0) {
-            $values = array_values($this->data);
-            return $values[count($values) - 1];
+        if ($linq->count() > 0) {
+
+            $last = null;
+            foreach ($this as $item) {
+                $last = $item;
+            }
+            return $last;
+
         }
 
         if ($throw_if_not_found) {
@@ -475,14 +496,38 @@ class LINQ
     }
 
     /**
+     * @param callable $key_selector
+     * @param callable $value_selector
      * @return array
      */
-    public function toArray()
+    public function toArray($key_selector = null, $value_selector = null)
     {
-        return $this->data;
+        if ($key_selector === null && $value_selector === null) {
+            return iterator_to_array($this, false);
+        }
+
+        if ($key_selector === null) {
+            return iterator_to_array(new SelectIterator($this->iterator, $value_selector), false);
+        }
+
+        $response = [];
+
+        foreach ($this as $item) {
+            $key = call_user_func($key_selector, $item);
+            $value = call_user_func($value_selector, $item);
+            $response[$key] = $value;
+        }
+
+        return $response;
+    }
+
+    public function getIterator()
+    {
+        return $this->iterator;
     }
 
 #endregion
 
 #endregion
+
 }
