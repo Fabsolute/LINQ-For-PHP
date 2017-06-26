@@ -16,6 +16,7 @@ use Fabs\LINQ\Iterator\SelectManyIterator;
 use Fabs\LINQ\Iterator\SkipWhileIterator;
 use Fabs\LINQ\Iterator\TakeWhileIterator;
 use Fabs\LINQ\Iterator\WhereIterator;
+use Fabs\LINQ\Iterator\ZipIterator;
 
 class LINQ implements \IteratorAggregate, \Countable
 {
@@ -188,6 +189,18 @@ class LINQ implements \IteratorAggregate, \Countable
     }
 
     /**
+     * @param callable $callable
+     * @param array|\Traversable $new_source
+     * @return LINQ
+     */
+    public function zip($callable, $new_source)
+    {
+        $zip_iterator = new ZipIterator($this->iterator, $callable);
+        $zip_iterator->setZipIterator($new_source);
+        return new LINQ($zip_iterator);
+    }
+
+    /**
      * @param array|\Traversable $new_source
      * @return LINQ
      */
@@ -287,7 +300,7 @@ class LINQ implements \IteratorAggregate, \Countable
         }
 
         if ($throw_if_not_found) {
-            throw  new ArgumentOutOfRangeException();
+            throw new ArgumentOutOfRangeException();
         } else {
             return $default;
         }
@@ -431,7 +444,10 @@ class LINQ implements \IteratorAggregate, \Countable
      */
     public function first($callable = null, $throw_if_not_found = true, $default = null)
     {
-        $linq = $this->where($callable);
+        $linq = $this;
+        if ($callable != null) {
+            $linq = $this->where($callable);
+        }
 
         if ($linq->count() > 0) {
             foreach ($linq as $item) {
@@ -503,7 +519,11 @@ class LINQ implements \IteratorAggregate, \Countable
     public function toArray($key_selector = null, $value_selector = null)
     {
         if ($key_selector === null && $value_selector === null) {
-            return iterator_to_array($this, false);
+            $response = [];
+            foreach ($this as $key => $value) {
+                $response[$key] = $value;
+            }
+            return $response;
         }
 
         if ($key_selector === null) {
@@ -511,7 +531,6 @@ class LINQ implements \IteratorAggregate, \Countable
         }
 
         $response = [];
-
         foreach ($this as $item) {
             $key = call_user_func($key_selector, $item);
             $value = call_user_func($value_selector, $item);

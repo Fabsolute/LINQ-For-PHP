@@ -13,18 +13,18 @@ class GroupByIterator extends IteratorBase
 {
     public function getIterator()
     {
-//        $new_data = [];
-//
-//        foreach ($this->source as $key => $value) {
-//            $new_key = call_user_func($callable, $value);
-//            if (!array_key_exists($new_key, $new_data)) {
-//                $new_data[$new_key] = [];
-//            }
-//            $new_data[$new_key][] = $value;
-//        }
-//
-//        $this->source = $new_data;
-//        return $this;
-        //todo
+        $group_list = [];
+
+        foreach ($this->before_iterator as $key => $value) {
+            $new_key = call_user_func($this->callable, $value);
+            if (!array_key_exists($new_key, $group_list)) {
+                $group_list[$new_key] = [];
+            }
+            $group_list[$new_key][] = $value;
+        }
+
+        foreach ($group_list as $key => $value) {
+            yield $key => $value;
+        }
     }
 }

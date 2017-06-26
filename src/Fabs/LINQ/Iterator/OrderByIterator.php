@@ -24,6 +24,7 @@ class OrderByIterator extends IteratorBase
     public function getIterator()
     {
         $ordered_list = [];
+        $before_list = [];
         foreach ($this->before_iterator as $key => $value) {
             $response = $value;
             if ($this->callable != null) {
@@ -31,6 +32,7 @@ class OrderByIterator extends IteratorBase
             }
 
             $ordered_list[$key] = $response;
+            $before_list [$key] = $value;
         }
 
         switch ($this->direction) {
@@ -43,7 +45,7 @@ class OrderByIterator extends IteratorBase
         }
 
         foreach ($ordered_list as $key => $value) {
-            yield $this->before_iterator[$key];
+            yield $before_list[$key];
         }
     }
 }
