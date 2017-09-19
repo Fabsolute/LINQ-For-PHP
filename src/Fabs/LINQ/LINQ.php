@@ -66,6 +66,26 @@ class LINQ
     }
 
     /**
+     * @param callable $key_selector
+     * @param callable $value_selector
+     * @return LINQ
+     */
+    public function map($key_selector, $value_selector)
+    {
+        $new_data = [];
+
+        foreach ($this->data as $value) {
+            $selected_key = call_user_func($key_selector, $value);
+            $selected_value = call_user_func($value_selector, $value);
+            $new_data[$selected_key] = $selected_value;
+        }
+
+        $this->data = $new_data;
+
+        return $this;
+    }
+
+    /**
      * @return LINQ
      */
     public function distinct()
