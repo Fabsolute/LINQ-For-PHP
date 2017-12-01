@@ -29,6 +29,7 @@ class LINQ
     }
 
     #region Queries
+
     /**
      * @param callable $callable
      * @return LINQ
@@ -58,6 +59,34 @@ class LINQ
         foreach ($this->data as $key => $value) {
             $response = call_user_func($callable, $value);
             $new_data[$key] = $response;
+        }
+
+        $this->data = $new_data;
+
+        return $this;
+    }
+
+    /**
+     * @param array $source
+     * @param callable $collection_selector
+     * @param callable|null $value_selector
+     * @return LINQ
+     */
+    public function selectMany($source, $collection_selector, $value_selector = null)
+    {
+        $collection_counter = 0;
+        $item_counter = 0;
+        $new_data = [];
+        foreach ($source as $element) {
+            $items = call_user_func_array($collection_selector, [$element, $collection_counter]);
+            foreach ($items as $item) {
+                if (is_callable($value_selector)) {
+                    $item = call_user_func_array($value_selector, [$item, $item_counter]);
+                }
+                $new_data[] = $item;
+                $item_counter++;
+            }
+            $collection_counter++;
         }
 
         $this->data = $new_data;
@@ -128,7 +157,7 @@ class LINQ
 
         foreach ($this->data as $key => $value) {
             $new_key = call_user_func($callable, $value);
-            if(!array_key_exists($new_key,$new_data)){
+            if (!array_key_exists($new_key, $new_data)) {
                 $new_data[$new_key] = [];
             }
             $new_data[$new_key][] = $value;
@@ -213,6 +242,7 @@ class LINQ
     }
 
     #region Finishers
+
     /**
      * @param callable $callable
      */
