@@ -87,17 +87,16 @@ class LINQ
     }
 
     /**
-     * @param array $source
      * @param callable $collection_selector
      * @param callable|null $value_selector
      * @return LINQ
      */
-    public function selectMany($source, $collection_selector, $value_selector = null)
+    public function selectMany($collection_selector, $value_selector = null)
     {
         $collection_counter = 0;
         $item_counter = 0;
         $new_data = [];
-        foreach ($source as $element) {
+        foreach ($this->data as $element) {
             $items = call_user_func_array($collection_selector, [$element, $collection_counter]);
             foreach ($items as $item) {
                 if (is_callable($value_selector)) {
