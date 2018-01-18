@@ -525,6 +525,22 @@ class LINQ
     }
 
     /**
+     * @param callable $callable
+     * @param mixed $seed
+     * @return mixed
+     * @author ahmetturk <ahmetturk93@gmail.com>
+     */
+    public function aggregate($callable, $seed)
+    {
+        $accumulator = $seed;
+        foreach ($this->data as $value) {
+            $accumulator = $callable($accumulator, $value);
+        }
+
+        return $accumulator;
+    }
+
+    /**
      * @return array
      */
     public function toArray()
