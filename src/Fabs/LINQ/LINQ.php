@@ -168,18 +168,24 @@ class LINQ
     }
 
     /**
-     * @param callable $callable
+     * @param callable $key_selector
+     * @param callable $value_selector
      * @return LINQ
      */
-    public function groupBy($callable)
+    public function groupBy($key_selector, $value_selector = null)
     {
         $new_data = [];
 
         foreach ($this->data as $key => $value) {
-            $new_key = call_user_func($callable, $value);
+            $new_key = call_user_func($key_selector, $value);
             if (!array_key_exists($new_key, $new_data)) {
                 $new_data[$new_key] = [];
             }
+
+            if (is_callable($value_selector)) {
+                $value = $value_selector($value);
+            }
+
             $new_data[$new_key][] = $value;
         }
 
