@@ -115,11 +115,12 @@ class LINQ
     }
 
     /**
+     * @param int $sort_flags
      * @return LINQ
      */
-    public function distinct()
+    public function distinct($sort_flags = SORT_REGULAR)
     {
-        $this->data = array_unique($this->data);
+        $this->data = array_unique($this->data, $sort_flags);
         return $this;
     }
 
